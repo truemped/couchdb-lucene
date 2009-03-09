@@ -101,16 +101,11 @@
       </plugin>
     </plugins>
   </build>
-  <!-- until 2.4.1 official release -->
   <repositories>
     <repository>
       <id>carrot2.org</id>
       <name>Carrot2 Maven2 repository</name>
       <url>http://download.carrot2.org/maven2/</url>
-    </repository>
-    <repository>
-      <id>temporary</id>
-      <url>http://people.apache.org/~mikemccand/staging-area/lucene2.4.1rc2/dist/maven</url>
     </repository>
   </repositories>
 </project>
