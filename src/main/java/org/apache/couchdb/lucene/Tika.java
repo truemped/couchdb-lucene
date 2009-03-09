@@ -1,7 +1,6 @@
 package org.apache.couchdb.lucene;
 
 import static org.apache.couchdb.lucene.Utils.text;
-import static org.apache.couchdb.lucene.Utils.token;
 
 import java.io.IOException;
 import java.io.InputStream;

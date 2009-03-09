@@ -237,7 +237,7 @@ public final class Index {
 			doc.add(token(Config.REV, rev, true));
 
 			// Index all attributes.
-			add(doc, null, json, false);
+			add(doc, null, json, true);
 
 			// Attachments
 			if (json.has("_attachments")) {
