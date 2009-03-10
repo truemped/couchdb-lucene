@@ -8,3 +8,10 @@
 * clustering (carrot2).
 * distributed search.
 
+
+_design/lucene
+
+carrot2 -> {"title_field":"blah", "content_field:"blah"}
+
+forces Store.YES
+
