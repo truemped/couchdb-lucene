@@ -31,26 +31,31 @@ public final class Carrot2 {
 				"lucene", luceneGlobalAttributes));
 
 		final Map<String, Object> processingAttributes = new HashMap<String, Object>();
-		processingAttributes.put(AttributeNames.QUERY, "content:enron");
+		processingAttributes.put(AttributeNames.QUERY, "content:london");
 
 		ProcessingResult process = controller.process(processingAttributes, "lucene", LingoClusteringAlgorithm.class
 				.getName());
 
-		final Collection<Document> documents = process.getDocuments();
 		final Collection<Cluster> clusters = process.getClusters();
-		final Map<String, Object> attributes = process.getAttributes();
-
-		System.out.println(attributes);
 
 		for (final Cluster cluster : clusters) {
-			System.out.println("label: " + cluster.getLabel());
-			System.out.println("phrases: " + cluster.getPhrases());
-			System.out.print("docs: ");
-			for (final Document doc : cluster.getAllDocuments()) {
-				System.out.print(doc.getId());
-			}
-			System.out.println();
+			print(cluster);
 		}
+	}
+
+	private static void print(Cluster cluster) {
+		System.out.println("label: " + cluster.getLabel());
+		System.out.println("phrases: " + cluster.getPhrases());
+		System.out.print("docs: ");
+		for (final Document doc : cluster.getAllDocuments()) {
+			System.out.print(doc.getId());
+			System.out.print(" ");
+		}
+		System.out.println();
+		for (final Cluster subcluster : cluster.getSubclusters()) {
+			print(subcluster);
+		}
+		System.out.println("----------");
 	}
 
 	public Carrot2() {
