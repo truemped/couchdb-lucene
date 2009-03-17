@@ -1,13 +1,6 @@
 <h1>News</h1>
 
-I've merged the changes from the beta branch which brings many improvements. Notably;
-
-<ol>
-<li>Indexing is a separate process to searching and is triggered by update notifications.
-<li>Rhino integration has landed, user customization of indexing is now possible.
-</ol>
-
-You are advised to delete indexes created prior to this update.
+Issue tracking now available at <a href="http://rnewson.lighthouseapp.com/projects/27420-couchdb-lucene"/>lighthouseapp</a>.
 
 <h1>Build couchdb-lucene</h1>
 
@@ -78,11 +71,11 @@ You can perform all types of queries using Lucene's default <a href="http://luce
 
 <dl>
 <dt>q<dd>the query to run (e.g, subject:hello)
-<dt>sort<dd>the comma-separated fields to sort on.
-<dt>asc<dd>sort ascending (true) or descending (false), only when sorting on a single field.
+<dt>sort<dd>the comma-separated fields to sort on. Prefix with / for ascending order and \ for descending order (ascending is the default if not specified).
 <dt>limit<dd>the maximum number of results to return
 <dt>skip<dd>the number of results to skip
 <dt>include_docs<dd>whether to include the source docs
+<dt>stale=ok<dd>If you set the <i>stale</i> option <i>ok</i>, couchdb-lucene may not perform any refreshing on the index. Searches may be faster as Lucene caches important data (especially for sorting). A query without stale=ok will use the latest data committed to the index.
 <dt>debug<dd>if false, a normal application/json response with results appears. if true, an pretty-printed HTML blob is returned instead.
 </dl>
 
@@ -92,7 +85,6 @@ You can perform all types of queries using Lucene's default <a href="http://luce
 
 <dl>
 <dt>_id<dd>The _id of the document.
-<dt>_rev<dd>The _rev of the document.
 <dt>_db<dd>The source database of the document.
 <dt>_body<dd>Any text extracted from any attachment.
 </dl>
@@ -143,12 +135,10 @@ Here's an example of a JSON response without sorting;
   "rows":   [
         {
       "_id": "hain-m-all_documents-257.",
-      "_rev": "3750319208",
       "score": 1.601625680923462
     },
         {
       "_id": "hain-m-notes_inbox-257.",
-      "_rev": "2603032545",
       "score": 1.601625680923462
     }
   ]
@@ -179,7 +169,6 @@ And the same with sorting;
   "rows":   [
         {
       "_id": "shankman-j-inbox-105.",
-      "_rev": "4289412378",
       "score": 0.6131107211112976,
       "sort_order":       [
         "enron",
@@ -188,7 +177,6 @@ And the same with sorting;
     },
         {
       "_id": "shankman-j-inbox-8.",
-      "_rev": "1417542355",
       "score": 0.7492915391921997,
       "sort_order":       [
         "enron",
@@ -197,7 +185,6 @@ And the same with sorting;
     },
         {
       "_id": "shankman-j-inbox-30.",
-      "_rev": "951793815",
       "score": 0.507369875907898,
       "sort_order":       [
         "enron",
@@ -250,3 +237,12 @@ fti=/usr/bin/java -D couchdb.lucene.dir=/tmp \
 /home/rnewson/Source/couchdb-lucene/target/dependency\
 org.apache.couchdb.lucene.Main
 </pre>
+
+<h2>Basic Authentication</h2>
+
+If you put couchdb behind an authenticating proxy you can still configure couchdb-lucene to pull from it by specifying additional system properties. Currently only Basic authentication is supported.
+
+<dl>
+<dt>couchdb.user<dd>the user to authenticate as.
+<dt>couchdb.password<dd>the password to authenticate with.
+</dl>

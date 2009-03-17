@@ -1,13 +1,19 @@
+Search Performance
+
 * sort cache can take too long to build, respond with keep-alive messages.
-* add a _status uri that lets you see index state/progress.
 * add an _optimize option.
-* handle "create" and "delete" notifications explicitly.
+* add Cache-Control: max-age=(minimum number of seconds before we commit)
+* distributed scoring.
+
+Index Performance
+
 * batch updates (no hair trigger).
-* reindex when transform function changes.
+
+Misc
+
 * hit highlighting (lucene contrib).
 * clustering (carrot2).
 * distributed search.
-
 
 _design/lucene
 
@@ -15,3 +21,4 @@ carrot2 -> {"title_field":"blah", "content_field:"blah"}
 
 forces Store.YES
 
+* JSONQuery? (http://docs.persvr.org/documentation/jsonquery)

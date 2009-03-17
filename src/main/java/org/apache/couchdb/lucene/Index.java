@@ -7,10 +7,11 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Date;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Scanner;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -18,8 +19,11 @@ import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.LogByteSizeMergePolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermEnum;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
@@ -31,7 +35,7 @@ import org.apache.lucene.store.FSDirectory;
  */
 public final class Index {
 
-	private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+	private static final DateFormat DATE_FORMAT = new SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss 'GMT'Z '('z')'");
 
 	private static final Database DB = new Database(Config.DB_URL);
 
@@ -39,13 +43,24 @@ public final class Index {
 
 	private static final Object MUTEX = new Object();
 
-	private static final Map<String, Long> updates = new HashMap<String, Long>();
+	private static final Timer TIMER = new Timer("Timer", true);
+
+	private static class CheckpointTask extends TimerTask {
+
+		@Override
+		public void run() {
+			wakeupIndexer();
+		}
+
+	}
 
 	private static class Indexer implements Runnable {
 
 		private Directory dir;
 
 		private boolean running = true;
+
+		private long lastCommit = System.currentTimeMillis();
 
 		public void run() {
 			try {
@@ -59,7 +74,7 @@ public final class Index {
 			}
 		}
 
-		private void updateIndex() throws IOException {
+		private synchronized void updateIndex() throws IOException {
 			if (IndexWriter.isLocked(dir)) {
 				Log.errlog("Forcibly unlocking locked index at startup.");
 				IndexWriter.unlock(dir);
@@ -71,27 +86,28 @@ public final class Index {
 			Rhino rhino = null;
 
 			boolean commit = false;
-			boolean expunge = false;
 			final IndexWriter writer = newWriter();
-			Progress progress = null;
+			final Progress progress = new Progress();
 			try {
-				// Delete all documents in non-extant databases.
 				final IndexReader reader = IndexReader.open(dir);
 				try {
+					// Load status.
+					progress.load(reader);
+
+					// Remove documents from deleted databases.
 					final TermEnum terms = reader.terms(new Term(Config.DB, ""));
 					try {
-						while (terms.next()) {
+						do {
 							final Term term = terms.term();
-							if (!term.field().equals(Config.DB))
+							if (term == null || Config.DB.equals(term.field()) == false)
 								break;
 							if (Arrays.binarySearch(dbnames, term.text()) < 0) {
 								Log.errlog("Database '%s' has been deleted," + " removing all documents from index.",
 										term.text());
-								delete(writer, term.text());
+								delete(term.text(), writer);
 								commit = true;
-								expunge = true;
 							}
-						}
+						} while (terms.next());
 					} finally {
 						terms.close();
 					}
@@ -100,11 +116,9 @@ public final class Index {
 				}
 
 				// Update all extant databases.
-				progress = new Progress(dir);
-				progress.load();
 				for (final String dbname : dbnames) {
 					// Database might supply a transformation function.
-					final JSONObject designDoc = DB.getDoc(dbname, "_design/lucene", null);
+					final JSONObject designDoc = DB.getDoc(dbname, "_design/lucene");
 					if (designDoc != null && designDoc.containsKey("transform")) {
 						String transform = designDoc.getString("transform");
 						// Strip start and end double quotes.
@@ -116,17 +130,22 @@ public final class Index {
 					}
 					commit |= updateDatabase(writer, dbname, progress, rhino);
 				}
-			} catch (final IOException e) {
+			} catch (final Exception e) {
 				Log.errlog(e);
 				commit = false;
 			} finally {
 				if (commit) {
-					if (expunge) {
-						writer.expungeDeletes();
-					}
+					progress.save(writer);
 					writer.close();
-					Log.errlog("Committed changes to index.");
-					progress.save();
+					lastCommit = System.currentTimeMillis();
+
+					final IndexReader reader = IndexReader.open(dir);
+					try {
+						Log.errlog("Committed changes to index (%,d documents in index, %,d deletes).", reader
+								.numDocs(), reader.numDeletedDocs());
+					} finally {
+						reader.close();
+					}
 				} else {
 					writer.rollback();
 				}
@@ -145,68 +164,86 @@ public final class Index {
 
 		private IndexWriter newWriter() throws IOException {
 			final IndexWriter result = new IndexWriter(dir, Config.ANALYZER, MaxFieldLength.UNLIMITED);
+
+			// Customize merge policy.
+			final LogByteSizeMergePolicy mp = new LogByteSizeMergePolicy();
+			mp.setMergeFactor(5);
+			mp.setMaxMergeMB(1000);
+			result.setMergePolicy(mp);
+
+			// Customer other settings.
 			result.setUseCompoundFile(false);
 			result.setRAMBufferSizeMB(Config.RAM_BUF);
-			result.setMergeFactor(5);
-			result.setMaxMergeDocs(1 * 1000 * 1000);
+
 			return result;
 		}
 
 		private boolean updateDatabase(final IndexWriter writer, final String dbname, final Progress progress,
 				final Rhino rhino) throws HttpException, IOException {
-			final JSONObject info = DB.getInfo(dbname);
-			final long update_seq = info.getLong("update_seq");
+			final long cur_seq = progress.getSeq(dbname);
+			final long target_seq = DB.getInfo(dbname).getLong("update_seq");
 
-			long from = progress.getProgress(dbname);
-			long start = from;
-
-			if (from > update_seq) {
-				start = from = -1;
-				progress.setProgress(dbname, -1);
+			final boolean time_threshold_passed = (System.currentTimeMillis() - lastCommit) >= Config.TIME_THRESHOLD * 1000;
+			final boolean change_threshold_passed = (target_seq - cur_seq) >= Config.CHANGE_THRESHOLD;
+			
+			if (!(time_threshold_passed || change_threshold_passed)) {
+				return false;
 			}
 
-			if (from == -1) {
+			final String cur_sig = progress.getSignature(dbname);
+			final String new_sig = rhino == null ? Progress.NO_SIGNATURE : rhino.getSignature();
+
+			boolean result = false;
+
+			// Reindex the database if sequence is 0 or signature changed.
+			if (progress.getSeq(dbname) == 0 || cur_sig.equals(new_sig) == false) {
 				Log.errlog("Indexing '%s' from scratch.", dbname);
-				delete(writer, dbname);
+				delete(dbname, writer);
+				progress.update(dbname, new_sig, 0);
+				result = true;
 			}
 
-			boolean changed = false;
-			while (from < update_seq) {
-				final JSONObject obj = DB.getAllDocsBySeq(dbname, from, Config.BATCH_SIZE);
+			long update_seq = progress.getSeq(dbname);
+			while (update_seq < target_seq) {
+				final JSONObject obj = DB.getAllDocsBySeq(dbname, update_seq, Config.BATCH_SIZE);
+
 				if (!obj.has("rows")) {
 					Log.errlog("no rows found (%s).", obj);
 					return false;
 				}
+
+				// Process all rows
 				final JSONArray rows = obj.getJSONArray("rows");
 				for (int i = 0, max = rows.size(); i < max; i++) {
 					final JSONObject row = rows.getJSONObject(i);
 					final JSONObject value = row.optJSONObject("value");
 					final JSONObject doc = row.optJSONObject("doc");
 
+					// New or updated document.
 					if (doc != null) {
 						updateDocument(writer, dbname, rows.getJSONObject(i), rhino);
-						changed = true;
+						result = true;
 					}
+
+					// Deleted document.
 					if (value != null && value.optBoolean("deleted")) {
 						writer.deleteDocuments(new Term(Config.ID, row.getString("id")));
-						changed = true;
+						result = true;
 					}
-				}
-				from += Config.BATCH_SIZE;
-			}
-			progress.setProgress(dbname, update_seq);
 
-			if (changed) {
-				synchronized (MUTEX) {
-					updates.remove(dbname);
+					update_seq = row.getLong("key");
 				}
-				Log.errlog("%s: index caught up from %,d to %,d.", dbname, start, update_seq);
 			}
 
-			return changed;
+			if (result) {
+				progress.update(dbname, new_sig, update_seq);
+				Log.errlog("%s: index caught up to %,d.", dbname, update_seq);
+			}
+
+			return result;
 		}
 
-		private void delete(final IndexWriter writer, final String dbname) throws IOException {
+		private void delete(final String dbname, final IndexWriter writer) throws IOException {
 			writer.deleteDocuments(new Term(Config.DB, dbname));
 		}
 
@@ -230,11 +267,11 @@ public final class Index {
 			// Standard properties.
 			doc.add(token(Config.DB, dbname, false));
 			final String id = (String) json.remove(Config.ID);
-			final String rev = (String) json.remove(Config.REV);
+			// Discard _rev
+			json.remove("_rev");
 
 			// Index _id and _rev as tokens.
 			doc.add(token(Config.ID, id, true));
-			doc.add(token(Config.REV, rev, true));
 
 			// Index all attributes.
 			add(doc, null, json, true);
@@ -273,8 +310,9 @@ public final class Index {
 				}
 			} else if (value instanceof String) {
 				try {
-					DATE_FORMAT.parse((String) value);
-					out.add(token(key, (String) value, store));
+					final Date date = DATE_FORMAT.parse((String) value);
+					out.add(new Field(key, (String) value, Store.YES, Field.Index.NO));
+					out.add(new Field(key, Long.toString(date.getTime()), Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
 				} catch (final java.text.ParseException e) {
 					out.add(text(key, (String) value, store));
 				}
@@ -304,22 +342,29 @@ public final class Index {
 	 * type can be created, updated or deleted.
 	 */
 	public static void main(final String[] args) {
-		final Runnable indexer = new Indexer();
-		final Thread indexerThread = new Thread(indexer, "indexer");
-		indexerThread.setDaemon(true);
-		indexerThread.start();
+		start("indexer", new Indexer());
+		TIMER.schedule(new CheckpointTask(), Config.TIME_THRESHOLD * 1000, Config.TIME_THRESHOLD * 1000);
 
 		final Scanner scanner = new Scanner(System.in);
 		while (scanner.hasNextLine()) {
 			final String line = scanner.nextLine();
 			final JSONObject obj = JSONObject.fromObject(line);
 			if (obj.has("type") && obj.has("db")) {
-				synchronized (MUTEX) {
-					updates.put(obj.getString("db"), System.nanoTime());
-					MUTEX.notify();
-				}
+				wakeupIndexer();
 			}
 		}
+	}
+
+	private static void wakeupIndexer() {
+		synchronized (MUTEX) {
+			MUTEX.notify();
+		}
+	}
+
+	private static void start(final String name, final Runnable runnable) {
+		final Thread thread = new Thread(runnable, name);
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 }

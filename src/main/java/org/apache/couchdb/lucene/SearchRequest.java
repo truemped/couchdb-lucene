@@ -26,7 +26,7 @@ import org.apache.lucene.search.BooleanClause.Occur;
 
 public final class SearchRequest {
 
-	private static final FieldSelector FS = new MapFieldSelector(new String[] { Config.ID, Config.REV });
+	private static final FieldSelector FS = new MapFieldSelector(new String[] { Config.ID });
 
 	private static final Database DB = new Database(Config.DB_URL);
 
@@ -69,10 +69,27 @@ public final class SearchRequest {
 		if (sort == null) {
 			this.sort = null;
 		} else {
-			if (sort.indexOf(",") != -1) {
-				this.sort = new Sort(sort.split(","));
+			final String[] split = sort.split(",");
+			final SortField[] sort_fields = new SortField[split.length];
+			for (int i = 0; i < split.length; i++) {
+				switch (split[i].charAt(0)) {
+				case '/':
+					sort_fields[i] = new SortField(split[i].substring(1));
+					break;
+				case '\\':
+					sort_fields[i] = new SortField(split[i].substring(1), true);
+					break;
+				default:
+					sort_fields[i] = new SortField(split[i]);
+					break;
+				}
+			}
+
+			if (sort_fields.length == 1) {
+				// Let Lucene add doc as secondary sort order.
+				this.sort = new Sort(sort_fields[0].getField(), sort_fields[0].getReverse());
 			} else {
-				this.sort = new Sort(sort, !query.optBoolean("asc", true));
+				this.sort = new Sort(sort_fields);
 			}
 		}
 	}
@@ -98,30 +115,38 @@ public final class SearchRequest {
 		}
 		stopWatch.lap("search");
 		// Fetch matches (if any).
-		final int max = min(td.totalHits, limit);
+		final int max = min(td.totalHits - skip, limit);
 		final JSONArray rows = new JSONArray();
+		final String[] fetch_ids = new String[max];
 		for (int i = skip; i < skip + max; i++) {
 			final Document doc = searcher.doc(td.scoreDocs[i].doc, FS);
 			final JSONObject obj = new JSONObject();
 			// Include basic details.
-			obj.element("_id", doc.get(Config.ID));
-			obj.element("_rev", doc.get(Config.REV));
-			obj.element("score", td.scoreDocs[i].score);
+			obj.put("_id", doc.get(Config.ID));
+			obj.put("score", td.scoreDocs[i].score);
 			// Include sort order (if any).
 			if (td instanceof TopFieldDocs) {
 				final FieldDoc fd = (FieldDoc) ((TopFieldDocs) td).scoreDocs[i];
-				obj.element("sort_order", fd.fields);
+				obj.put("sort_order", fd.fields);
 			}
 			// Fetch document (if requested).
 			if (include_docs) {
-				obj.element("doc", DB.getDoc(dbname, obj.getString("_id"), obj.getString("_rev")));
+				fetch_ids[i - skip] = doc.get(Config.ID);
 			}
 			rows.add(obj);
+		}
+		// Fetch documents (if requested).
+		if (include_docs) {
+			final JSONArray fetched_docs = DB.getDocs(dbname, fetch_ids).getJSONArray("rows");
+			for (int i = 0; i < max; i++) {
+				rows.getJSONObject(i).put("doc", fetched_docs.get(i));
+			}
 		}
 		stopWatch.lap("fetch");
 
 		final JSONObject json = new JSONObject();
 		json.put("q", q.toString(Config.DEFAULT_FIELD));
+		json.put("etag", etag);
 		json.put("skip", skip);
 		json.put("limit", limit);
 		json.put("total_rows", td.totalHits);
@@ -136,9 +161,10 @@ public final class SearchRequest {
 		final JSONObject result = new JSONObject();
 		result.put("code", 200);
 
-		// Results can't change unless the IndexReader does.
 		final JSONObject headers = new JSONObject();
-		// TODO make a per-db etag (md5(dbname + update_seq)?).
+		// Cache for 5 minutes.
+		headers.put("Cache-Control", "max-age=300");
+		// Results can't change unless the IndexReader does.
 		headers.put("ETag", etag);
 		result.put("headers", headers);
 
@@ -153,10 +179,6 @@ public final class SearchRequest {
 
 	private String getETag(final IndexSearcher searcher) {
 		return Long.toHexString(searcher.getIndexReader().getVersion());
-	}
-
-	private String toString(final Sort sort) {
-		return toString(sort.getSort());
 	}
 
 	private String toString(final SortField[] sortFields) {

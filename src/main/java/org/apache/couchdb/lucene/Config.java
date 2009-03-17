@@ -16,8 +16,6 @@ final class Config {
 
 	static final String ID = "_id";
 
-	static final String REV = "_rev";
-
 	static final String SEQ = "_seq";
 
 	static final String BODY = "_body";
@@ -33,7 +31,15 @@ final class Config {
 	static final int BATCH_SIZE = Integer.getInteger("couchdb.lucene.batch", 1000);
 
 	static final String DB_URL = System.getProperty("couchdb.url", "http://localhost:5984");
+	
+	static final String DB_USER = System.getProperty("couchdb.user");
+
+	static final String DB_PASSWORD = System.getProperty("couchdb.password");
 
 	static final int MAX_LIMIT = Integer.getInteger("couchdb.lucene.max_fetch", 250);
+
+	static final int CHANGE_THRESHOLD = Integer.getInteger("couchdb.lucene.change_threshold", 100);
+
+	static final int TIME_THRESHOLD = Integer.getInteger("couchdb.lucene.time_threshold", 60);
 
 }
