@@ -75,7 +75,7 @@ public final class Database {
     }
 
     public JSONObject getAllDocsBySeq(final String dbname, final long startkey) throws IOException {
-        return JSONObject.fromObject(get(String.format("%s/_all_docs_by_seq?startkey=%s&include_docs=true",
+        return JSONObject.fromObject(get(String.format("%s/_changes?since=%s&include_docs=true",
                 encode(dbname), startkey)));
     }
 
@@ -98,7 +98,7 @@ public final class Database {
     }
 
     public JSONObject getAllDocsBySeq(final String dbname, final long startkey, final int limit) throws IOException {
-        return JSONObject.fromObject(get(String.format("%s/_all_docs_by_seq?startkey=%d&limit=%d&include_docs=true",
+        return JSONObject.fromObject(get(String.format("%s/_changes?since=%d&limit=%d&include_docs=true",
                 encode(dbname), startkey, limit)));
     }
 

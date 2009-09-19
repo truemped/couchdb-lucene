@@ -249,15 +249,15 @@ public final class Index {
             while (update_seq < target_seq) {
                 final JSONObject obj = DB.getAllDocsBySeq(dbname, update_seq, Config.BATCH_SIZE);
 
-                if (!obj.has("rows")) {
-                    Utils.LOG.warn("no rows found (" + obj + ").");
+                if (!obj.has("results")) {
+                    Utils.LOG.warn("no results found (" + obj + ").");
                 }
 
                 // Process all rows
-                final JSONArray rows = obj.getJSONArray("rows");
+                final JSONArray rows = obj.getJSONArray("results");
                 for (int i = 0, max = rows.size(); i < max; i++) {
                     final JSONObject row = rows.getJSONObject(i);
-                    final JSONObject value = row.optJSONObject("value");
+                    final JSONObject value = row.optJSONObject("changes");
                     final JSONObject doc = row.optJSONObject("doc");
                     final String docid = row.getString("id");
 
@@ -283,7 +283,7 @@ public final class Index {
                         writer.deleteDocuments(docQuery(viewname, row.getString("id")));
                     }
 
-                    update_seq = row.getLong("key");
+                    update_seq = row.getLong("seq");
                 }
             }
 
