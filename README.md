@@ -22,7 +22,7 @@ Java 1.5 (or above) is required; the Sun version is recommended as it's regularl
 <h1>Build couchdb-lucene</h1>
 
 <ol>
-<li>./gradlew build
+<li>./gradlew
 <li>configure couchdb (see below)
 </ol>
 

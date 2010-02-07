@@ -1,6 +1,7 @@
 usePlugin 'java'
 usePlugin 'eclipse'
 
+defaultTasks 'clean', 'build'
 sourceCompatibility=1.5
 version=0.5
 
