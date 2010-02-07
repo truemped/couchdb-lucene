@@ -5,18 +5,29 @@ repositories {
 }
 
 dependencies {
-    compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.0.1'
-    compile group: 'org.apache.lucene', name: 'lucene-core', version: '3.0.0'
-    compile group: 'org.apache.lucene', name: 'lucene-analyzers', version: '3.0.0'
-    compile group: 'org.mortbay.jetty', name: 'jetty-embedded', version: '6.1.22'
-    compile group: 'commons-configuration', name: 'commons-configuration', version: '1.4'
-    compile group: 'net.sf.json-lib', name: 'json-lib', version: '2.2.3', classifier: 'jdk15'
-    compile group: 'rhino', name: 'js', version: '1.7R2'
-    compile group: 'org.apache.tika', name: 'tika-core', version: '0.6'
-    compile group: 'org.apache.tika', name: 'tika-parsers', version: '0.6'
-    compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.5.6'
-    compile group: 'log4j', name: 'log4j', version: '1.2.14'
+    compile(
+	[group: 'commons-configuration', name: 'commons-configuration', version: '1.6'],
+	[group: 'commons-lang', name: 'commons-lang', version: '2.4'],
+	[group: 'net.jcip', name: 'jcip-annotations', version: '1.0'],
+	[group: 'org.mortbay.jetty', name: 'jetty', version: '6.1.20'],
+	[group: 'org.mortbay.jetty', name: 'jetty-util', version: '6.1.20'],
+	[group: 'org.mortbay.jetty', name: 'servlet-api', version: '2.5-20081211'],
+    	[group: 'commons-io', name: 'commons-io', version: '1.4'],
+    	[group: 'log4j', name: 'log4j', version: '1.2.14'],
+    	[group: 'net.sf.json-lib', name: 'json-lib', version: '2.2.3', classifier: 'jdk15'],
+    	[group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.0.1'],
+    	[group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.0.1'],
+    	[group: 'org.apache.lucene', name: 'lucene-analyzers', version: '3.0.0'],
+    	[group: 'org.apache.lucene', name: 'lucene-core', version: '3.0.0'],
+    	[group: 'org.apache.tika', name: 'tika-core', version: '0.6'],
+    	[group: 'org.apache.tika', name: 'tika-parsers', version: '0.6'],
+    	[group: 'org.mortbay.jetty', name: 'jetty-embedded', version: '6.1.20'],
+    	[group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.5.6'],
+    	[group: 'rhino', name: 'js', version: '1.7R2']
+    )
 
-    testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: '1.1'
-    testCompile group: 'junit', name: 'junit', version: '4.5'
+    testCompile(
+	[group: 'junit', name: 'junit', version: '4.5'],
+	[group: 'org.hamcrest', name: 'hamcrest-all', version: '1.1']
+    )
 }

@@ -22,9 +22,7 @@ Java 1.5 (or above) is required; the Sun version is recommended as it's regularl
 <h1>Build couchdb-lucene</h1>
 
 <ol>
-<li>Install Maven 2.
-<li>checkout repository
-<li>type 'mvn'
+<li>./gradlew build
 <li>configure couchdb (see below)
 </ol>
 
