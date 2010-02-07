@@ -16,7 +16,6 @@ dependencies {
     compile(
 	[group: 'commons-configuration', name: 'commons-configuration', version: '1.6'],
 	[group: 'commons-lang', name: 'commons-lang', version: '2.4'],
-	[group: 'net.jcip', name: 'jcip-annotations', version: '1.0'],
 	[group: 'org.mortbay.jetty', name: 'jetty', version: '6.1.20'],
 	[group: 'org.mortbay.jetty', name: 'jetty-util', version: '6.1.20'],
 	[group: 'org.mortbay.jetty', name: 'servlet-api', version: '2.5-20081211'],
