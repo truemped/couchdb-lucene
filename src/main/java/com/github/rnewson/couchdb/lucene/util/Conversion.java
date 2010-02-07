@@ -24,8 +24,7 @@ import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeObject;
 
 /**
- * Because Rhino, inexplicably, can't convert Javascript objects to a readable
- * string.
+ * Because Rhino, inexplicably, can't convert Javascript objects to a readable string.
  * 
  * @author rnewson
  * 
@@ -33,8 +32,7 @@ import org.mozilla.javascript.NativeObject;
 public final class Conversion {
 
     /**
-     * Converts any object returned by Rhino to an object with a suitable
-     * toString() output.
+     * Converts any object returned by Rhino to an object with a suitable toString() output.
      */
     public static Object convert(final Object obj) {
         if (obj instanceof NativeObject) {
@@ -45,8 +43,8 @@ public final class Conversion {
         return obj;
     }
 
-    public static <T> T convert(final Object obj, final Class<T> clazz) {
-        return (T) Context.jsToJava(obj, clazz);
+    public static Object convert(final Object obj, final Class<?> clazz) {
+        return Context.jsToJava(obj, clazz);
     }
 
     private static Object convertArray(final NativeArray arr) {
