@@ -1,5 +1,12 @@
 usePlugin 'java'
 
+sourceCompatibility=1.5
+version=0.5
+
+manifest.mainAttributes(
+    'Main-Class': 'com.github.rnewson.couchdb.lucene.Main',
+)
+
 repositories {
     mavenCentral()
 }
