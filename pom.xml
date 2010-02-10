@@ -2,6 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.rnewson.couchdb.lucene</groupId>
   <artifactId>couchdb-lucene</artifactId>
+  <packaging>war</packaging>
   <name>CouchDB Lucene</name>
   <description>Full-text indexing for CouchDB</description>
   <url>http://github.com/rnewson/couchdb-lucene/</url>
