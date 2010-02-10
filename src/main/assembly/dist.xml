@@ -21,12 +21,12 @@
       <outputDirectory>/bin</outputDirectory>
     </file>
     <file>
-      <source>${project.basedir}/src/main/conf/couchdb-lucene.ini</source>
+      <source>${project.basedir}/src/main/config/couchdb-lucene.ini</source>
       <fileMode>644</fileMode>
       <outputDirectory>/conf</outputDirectory>
     </file>
     <file>
-      <source>${project.basedir}/src/main/conf/log4j.xml</source>
+      <source>${project.basedir}/src/main/config/log4j.xml</source>
       <fileMode>644</fileMode>
       <outputDirectory>/conf</outputDirectory>
     </file>
