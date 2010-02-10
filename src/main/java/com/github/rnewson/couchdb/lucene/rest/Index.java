@@ -15,7 +15,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 
 @Path("/{db}/{ddoc}/{view}")
-public class Search {
+public class Index {
 
     @GET
     @Path("search")
