@@ -1,0 +1,54 @@
+#!/bin/bash
+
+DIR=$(dirname $0)
+PID="$DIR/couchdb-lucene.pid"
+JAVA_OPTS="-server -Xmx1g"
+
+CLASS=com.github.rnewson.couchdb.lucene.Main
+
+CLASSPATH="$DIR/../conf"
+for JAR in `ls $DIR/../lib/*.jar`
+do
+    CLASSPATH="$CLASSPATH:$JAR"
+done
+
+case $1 in
+    start)
+        if [ -r $PID ]; then
+            echo "couchdb-lucene already running"
+        else
+            echo "starting couchdb-lucene"
+            java $JAVA_OPTS -cp $CLASSPATH $CLASS
+            echo $! > $PID
+        fi
+        ;;
+
+    stop)
+        echo "Stopping couchdb-lucene"
+        if [ -r $PID ]; then
+            if [ kill -15 `cat $PID` 2>/dev/null ]; then
+                echo "Stopped"
+            else
+                echo "Failed terminating JVM"
+                kill -9 `cat $PID` 2>/dev/null
+            fi
+        else
+            echo "couchdb-lucene not running"
+        fi
+        rm -f $PID
+        ;;
+
+    status)
+        if [ -r $PID ]; then
+            echo "couchdb-lucene running with pid=$(cat $PID)"
+        else
+            echo "couchdb-lucene not running"
+        fi
+        ;;
+
+    *)
+        echo "unknown command $1"
+        ;;
+
+esac
+
