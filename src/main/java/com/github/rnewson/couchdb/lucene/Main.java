@@ -20,7 +20,6 @@ import java.io.File;
 
 import org.apache.commons.configuration.HierarchicalINIConfiguration;
 import org.apache.commons.configuration.reloading.FileChangedReloadingStrategy;
-import org.apache.http.client.HttpClient;
 import org.apache.log4j.Logger;
 import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Handler;
@@ -33,60 +32,64 @@ import org.mortbay.servlet.GzipFilter;
 
 public class Main {
 
-    private static final Logger LOG = Logger.getLogger(Main.class);
+	private static final Logger LOG = Logger.getLogger(Main.class);
 
-    /**
-     * Run couchdb-lucene.
-     */
-    public static void main(String[] args) throws Exception {
-        final HierarchicalINIConfiguration configuration = new HierarchicalINIConfiguration(
-                Main.class.getClassLoader().getResource("couchdb-lucene.ini"));
-        configuration.setReloadingStrategy(new FileChangedReloadingStrategy());
+	/**
+	 * Run couchdb-lucene.
+	 */
+	public static void main(String[] args) throws Exception {
+		final HierarchicalINIConfiguration configuration = new HierarchicalINIConfiguration(
+				Main.class.getClassLoader().getResource("couchdb-lucene.ini"));
+		configuration.setReloadingStrategy(new FileChangedReloadingStrategy());
 
-        final File dir = new File(configuration.getString("lucene.dir", "indexes"));
+		final File dir = new File(configuration.getString("lucene.dir",
+				"indexes"));
 
-        if (dir == null) {
-            LOG.error("lucene.dir not set.");
-            System.exit(1);
-        }
-        if (!dir.exists() && !dir.mkdir()) {
-            LOG.error("Could not create " + dir.getCanonicalPath());
-            System.exit(1);
-        }
-        if (!dir.canRead()) {
-            LOG.error(dir + " is not readable.");
-            System.exit(1);
-        }
-        if (!dir.canWrite()) {
-            LOG.error(dir + " is not writable.");
-            System.exit(1);
-        }
-        LOG.info("Index output goes to: " + dir.getCanonicalPath());
+		if (dir == null) {
+			LOG.error("lucene.dir not set.");
+			System.exit(1);
+		}
+		if (!dir.exists() && !dir.mkdir()) {
+			LOG.error("Could not create " + dir.getCanonicalPath());
+			System.exit(1);
+		}
+		if (!dir.canRead()) {
+			LOG.error(dir + " is not readable.");
+			System.exit(1);
+		}
+		if (!dir.canWrite()) {
+			LOG.error(dir + " is not writable.");
+			System.exit(1);
+		}
+		LOG.info("Index output goes to: " + dir.getCanonicalPath());
 
-        final Server server = new Server();
-        final SelectChannelConnector connector = new SelectChannelConnector();
-        connector.setHost(configuration.getString("lucene.host", "localhost"));
-        connector.setPort(configuration.getInt("lucene.port", 5985));
+		final Lucene lucene = new Lucene(dir);
 
-        LOG.info("Accepting connections with " + connector);
+		final Server server = new Server();
+		final SelectChannelConnector connector = new SelectChannelConnector();
+		connector.setHost(configuration.getString("lucene.host", "localhost"));
+		connector.setPort(configuration.getInt("lucene.port", 5985));
 
-        server.setConnectors(new Connector[]{connector});
-        server.setStopAtShutdown(true);
-        server.setSendServerVersion(false);
+		LOG.info("Accepting connections with " + connector);
 
-        HttpClientFactory.setIni(configuration);
-        final HttpClient httpClient = HttpClientFactory.getInstance();
+		server.setConnectors(new Connector[] { connector });
+		server.setStopAtShutdown(true);
+		server.setSendServerVersion(false);
 
-        final LuceneServlet servlet = new LuceneServlet(httpClient, dir, configuration);
+		final LuceneServlet servlet = new LuceneServlet();
+		servlet.setLucene(lucene);
+		servlet.setConfiguration(configuration);
 
-        final Context context = new Context(server, "/", Context.NO_SESSIONS | Context.NO_SECURITY);
-        context.addServlet(new ServletHolder(servlet), "/*");
-        context.addFilter(new FilterHolder(new GzipFilter()), "/*", Handler.DEFAULT);
-        context.setErrorHandler(new JSONErrorHandler());
-        server.setHandler(context);
+		final Context context = new Context(server, "/", Context.NO_SESSIONS
+				| Context.NO_SECURITY);
+		context.addServlet(new ServletHolder(servlet), "/*");
+		context.addFilter(new FilterHolder(new GzipFilter()), "/*",
+				Handler.DEFAULT);
+		context.setErrorHandler(new JSONErrorHandler());
+		server.setHandler(context);
 
-        server.start();
-        server.join();
-    }
+		server.start();
+		server.join();
+	}
 
 }
